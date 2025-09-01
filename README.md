@@ -27,5 +27,22 @@ This system utilizes **machine learning (fingerprint vectors + transformer embed
 - [Tailwind CSS](https://tailwindcss.com/) — styling  
 
 **Deployment**
-- [Docker](https://www.docker.com/) — containerized services  
 - [Railway](https://railway.app/) / [Render](https://render.com/) — hosting options  
+
+## Apps
+- **backend/** — FastAPI service exposing `/recommend` and `/health`
+- **frontend/** — placeholder (Next.js to be added)
+- **data/** — put your `processed_data.csv` here
+
+## Getting Started (Backend Only, no Docker)
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate 
+pip install -r requirements.txt
+export DATA_PATH=../data/processed_data.csv  
+uvicorn app.main:app --reload
+```
+
+Open: http://127.0.0.1:8000/docs
