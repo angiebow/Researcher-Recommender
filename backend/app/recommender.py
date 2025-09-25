@@ -64,12 +64,47 @@ class FingerprintRecommender:
             return vec, t
         raise ValueError("No matching topic found")
 
-    def recommend(self, topic: str, topk: int = 10):
+    def recommend(self, topic: str, topk: int = 10, metric: str = 'cosine'):
         topic_emb = self.embedder.encode(topic)[0]
-        scores = self.researcher_embeddings @ topic_emb / (np.linalg.norm(self.researcher_embeddings, axis=1) * np.linalg.norm(topic_emb) + 1e-12)
+
+        def cosine_similarity(a, b):
+            return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12)
+
+        def hamming_distance(a, b):
+            return 1.0 - np.mean(a != b)
+
+        def kl_divergence(a, b):
+            a = np.clip(a, 1e-9, 1)
+            b = np.clip(b, 1e-9, 1)
+            return -np.sum(a * np.log(a / b))
+
+        def minkowski_distance(a, b, p=2):
+            return -np.linalg.norm(a - b, ord=p)
+
+        def jaccard_similarity(a, b):
+            a_bin = a > 0
+            b_bin = b > 0
+            intersection = np.logical_and(a_bin, b_bin).sum()
+            union = np.logical_or(a_bin, b_bin).sum()
+            return intersection / (union + 1e-12)
+
+        metric_funcs = {
+            'cosine': cosine_similarity,
+            'hamming': hamming_distance,
+            'kl': kl_divergence,
+            'minkowski': minkowski_distance,
+            'jaccard': jaccard_similarity,
+        }
+        metric = metric.lower()
+        if metric not in metric_funcs:
+            metric_func = cosine_similarity
+        else:
+            metric_func = metric_funcs[metric]
+
+        scores = np.array([metric_func(emb, topic_emb) for emb in self.researcher_embeddings])
         order = np.argsort(-scores)[:topk]
-        topic_sim = self.topic_embeddings @ topic_emb / (np.linalg.norm(self.topic_embeddings, axis=1) * np.linalg.norm(topic_emb) + 1e-12)
-        matched_idx = np.argmax(topic_sim)
+        topic_scores = np.array([metric_func(emb, topic_emb) for emb in self.topic_embeddings])
+        matched_idx = np.argmax(topic_scores)
         matched = self.topics[matched_idx]
         return order.tolist(), scores[order].tolist(), matched
 

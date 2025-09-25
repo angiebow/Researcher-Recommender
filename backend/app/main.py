@@ -37,10 +37,19 @@ def list_topics():
     return TopicListResponse(topics=recommender.topics[:1000])
 
 @app.get("/recommend", response_model=RecommendationResponse)
-def recommend(topic: str = Query(..., description="Topic name (fuzzy match if not exact)"),
-              topk: int = Query(10, ge=1, le=100)):
+def recommend(
+    topic: str = Query(..., description="Topic name (fuzzy match if not exact)"),
+    topk: int = Query(10, ge=1, le=100),
+    model: str = Query('mpnet', description="Transformer model to use (e.g. mpnet, bert, xlnet, albert, distilbert)"),
+    metric: str = Query('cosine', description="Similarity metric to use (cosine, hamming, kl, minkowski, jaccard)")
+):
+    global recommender
     try:
-        order, scores, matched = recommender.recommend(topic, topk=topk)
+        import pandas as pd
+        from .config import DATA_PATH
+        df = pd.read_csv(DATA_PATH)
+        recommender = FingerprintRecommender(df, embedding_model=model)
+        order, scores, matched = recommender.recommend(topic, topk=topk, metric=metric)
     except ValueError as e:
         suggestions = recommender.suggest_topics(topic, k=5)
         raise HTTPException(status_code=404, detail={"error": str(e), "suggestions": suggestions})
