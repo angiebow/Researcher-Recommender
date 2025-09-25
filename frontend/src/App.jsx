@@ -6,6 +6,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [model, setModel] = useState('mpnet');
+  const [metric, setMetric] = useState('cosine');
 
   const modelOptions = [
     { value: 'mpnet', label: 'MPNet' },
@@ -15,12 +16,20 @@ function App() {
     { value: 'distilbert', label: 'DistilBERT' },
   ];
 
+  const metricOptions = [
+    { value: 'cosine', label: 'Cosine' },
+    { value: 'hamming', label: 'Hamming' },
+    { value: 'kl', label: 'Kullback-Leibler (KL) Divergence' },
+    { value: 'minkowski', label: 'Minkowski' },
+    { value: 'jaccard', label: 'Jaccard' },
+  ];
+
   const handleSearch = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8000/recommend?topic=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}`);
+      const response = await fetch(`http://localhost:8000/recommend?topic=${encodeURIComponent(query)}&model=${encodeURIComponent(model)}&metric=${encodeURIComponent(metric)}`);
       if (!response.ok) throw new Error('Failed to fetch recommendations');
       const data = await response.json();
       setRecommendations(data.results || []);
@@ -48,6 +57,17 @@ function App() {
             style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', marginBottom: '1rem' }}
           >
             {modelOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <label htmlFor="metric-select" style={{ fontWeight: 'bold', marginBottom: '0.5rem', display: 'block' }}>Select Similarity Metric:</label>
+          <select
+            id="metric-select"
+            value={metric}
+            onChange={e => setMetric(e.target.value)}
+            style={{ width: '100%', padding: '0.5rem', fontSize: '1rem', marginBottom: '1rem' }}
+          >
+            {metricOptions.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
