@@ -1,9 +1,10 @@
 from typing import List, Tuple, Dict
 import numpy as np
 import pandas as pd
+from .embedding import EmbeddingModel
 
 class FingerprintRecommender:
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, embedding_model: str = 'bert'):
         req = {"ResearcherName","FieldOfResearch","TopicName","Percentage"}
         if not req.issubset(set(df.columns)):
             missing = req - set(df.columns)
@@ -34,6 +35,11 @@ class FingerprintRecommender:
 
         self.topic_array = np.array(self.topics)
 
+        self.embedder = EmbeddingModel(model_name=embedding_model)
+        self.researcher_texts = [f"{name} {self.field_map.get(name, '')} " + ' '.join([t for t in self.topics if pivot.loc[name, t] > 0]) for name in self.researchers]
+        self.researcher_embeddings = self.embedder.encode(self.researcher_texts)
+        self.topic_embeddings = self.embedder.encode(self.topics)
+
     def suggest_topics(self, q: str, k: int = 5) -> List[str]:
         ql = q.lower()
         hits = [t for t in self.topics if ql in t.lower()]
@@ -59,10 +65,12 @@ class FingerprintRecommender:
         raise ValueError("No matching topic found")
 
     def recommend(self, topic: str, topk: int = 10):
-        q_vec, matched = self.topic_vector(topic)
-        q_vec = q_vec / (np.linalg.norm(q_vec) + 1e-12)
-        scores = self.matrix_norm @ q_vec
+        topic_emb = self.embedder.encode(topic)[0]
+        scores = self.researcher_embeddings @ topic_emb / (np.linalg.norm(self.researcher_embeddings, axis=1) * np.linalg.norm(topic_emb) + 1e-12)
         order = np.argsort(-scores)[:topk]
+        topic_sim = self.topic_embeddings @ topic_emb / (np.linalg.norm(self.topic_embeddings, axis=1) * np.linalg.norm(topic_emb) + 1e-12)
+        matched_idx = np.argmax(topic_sim)
+        matched = self.topics[matched_idx]
         return order.tolist(), scores[order].tolist(), matched
 
     def top_topics_for_researcher(self, r_idx: int, n: int = 5):
